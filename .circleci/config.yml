@@ -124,8 +124,8 @@ jobs:
       # Checkout code from git
       - checkout
       # Restore from cache
-      # - restore_cache:
-      #     keys: [frontend-build]
+      - restore_cache:
+          keys: [frontend-build]
       # Your job code here
       - run:
           name: Scan and Audit Frontend
@@ -133,7 +133,7 @@ jobs:
             cd frontend
             npm install
             npm audit --audit-level=critical
-            npm audit fix --audit-level=critical
+            npm audit fix 
       # Alerts
       - slack/notify:
           channel: "C03RFUC0BDW, C03QP7VHQTF"
@@ -151,8 +151,8 @@ jobs:
       # Checkout code from git
       - checkout
       # Restore from cache
-      # - restore_cache:
-      #     keys: [backend-build]
+      - restore_cache:
+          keys: [backend-build]
       # Your job code here
       - run:
           name: Scan and Audit Backend
@@ -160,7 +160,7 @@ jobs:
             cd frontend
             npm install
             npm audit --audit-level=critical
-            npm audit fix --audit-level=critical
+            npm audit fix 
       # Alerts
       - slack/notify:
           channel: "C03RFUC0BDW, C03QP7VHQTF"
