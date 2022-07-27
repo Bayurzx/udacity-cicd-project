@@ -132,8 +132,8 @@ jobs:
           command: |
             cd frontend
             npm install
+            npm audit fix --audit-level=critical --force
             npm audit --audit-level=critical
-            npm audit fix 
       # Alerts
       - slack/notify:
           channel: "C03RFUC0BDW, C03QP7VHQTF"
@@ -159,8 +159,8 @@ jobs:
           command: |
             cd frontend
             npm install
+            npm audit fix --audit-level=critical --force
             npm audit --audit-level=critical
-            npm audit fix 
       # Alerts
       - slack/notify:
           channel: "C03RFUC0BDW, C03QP7VHQTF"
