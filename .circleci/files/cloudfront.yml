@@ -3,7 +3,13 @@ Description: >
 
 Parameters:
   WorkflowID:
-    Description: Unique identifier.
+    Description: |
+      Unique identifier used in s3 was bayurzx (udapeople-bayurzx)
+      Simply run : 
+        aws cloudformation deploy \
+         --template-file .circleci/files/cloudfront.yml \
+         --stack-name InitialStack \
+         --parameter-overrides WorkflowID=udapeople-bayurzx
     Type: String
 
 
