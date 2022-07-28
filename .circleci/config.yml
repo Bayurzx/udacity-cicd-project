@@ -386,7 +386,7 @@ jobs:
           command: |
             # your code here
             export BACKEND_IP=$(aws ec2 describe-instances \
-            --query 'Reservations[-1:].Instances[*].PublicIpAddress' \
+            --query 'Reservations[-2:].Instances[*].PublicIpAddress' \
             --filters Name=tag:project,Values=Udapeople \
             --output text)
 
