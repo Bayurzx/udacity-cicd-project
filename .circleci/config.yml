@@ -179,7 +179,7 @@ jobs:
           command: |
             aws cloudformation deploy \
               --template-file .circleci/files/backend.yml \
-              --tags project=Udapeople \
+              --tags project="Udapeople_${CIRCLE_WORKFLOW_ID:0:7}" \
               --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
       - run:
@@ -187,7 +187,7 @@ jobs:
           command: |
             aws cloudformation deploy \
               --template-file .circleci/files/frontend.yml \
-              --tags project=Udapeople \
+              --tags project="Udapeople_${CIRCLE_WORKFLOW_ID:0:7}" \
               --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
       - run:
@@ -196,7 +196,7 @@ jobs:
             # Your code here
             echo $(aws ec2 describe-instances \
             --query 'Reservations[*].Instances[*].PublicIpAddress' \
-            --filters Name=tag:project,Values=Udapeople \
+            --filters Name=tag:project,Values="Udapeople_${CIRCLE_WORKFLOW_ID:0:7}" \
             --output text) >> ~/project/.circleci/ansible/inventory
             cat ~/project/.circleci/ansible/inventory
       - persist_to_workspace:
@@ -392,7 +392,7 @@ jobs:
 
             # Fetch and prepare the BACKEND_IP env var
             export API_URL="http://${BACKEND_IP}:3030"
-            echo "${API_URL}"
+            echo "API_URL is ${API_URL}"
             if curl "${API_URL}/api/status" | grep "ok"
             then
                 return 0
@@ -444,7 +444,7 @@ jobs:
             --template-file .circleci/files/cloudfront.yml \
             --stack-name InitialStack \
             --parameter-overrides WorkflowID=${CIRCLE_WORKFLOW_ID:0:7} \
-            --tags project=Udapeople
+            --tags project="Udapeople_${CIRCLE_WORKFLOW_ID:0:7}"
 
             echo "Old WorkflowID is $OldWorkflowID"
             echo "New WorkflowID is ${CIRCLE_WORKFLOW_ID:0:7}"
