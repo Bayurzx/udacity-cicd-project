@@ -1,5 +1,5 @@
 Description: >
-  UdaPeople backend stack.
+  Project UdaPeople backend stack.
 
 Parameters:
   ID:
@@ -36,10 +36,10 @@ Resources:
       InstanceType: t2.micro
       SecurityGroups:
         - Ref: InstanceSecurityGroup
-      KeyName: myEC2 # If you use another key pair name, you should change this value to match.
+      KeyName: #myEC2 # If you use another key pair name, you should change this value to match.
       # If this ami id is not available for you, you can find another (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/finding-an-ami.html)
       # Ubuntu 18 or higher works fine
-      ImageId: ami-052efd3df9dad4825  # ubuntu
+      ImageId: #ami-052efd3df9dad4825  # ubuntu
       Tags:
         - Key: Name
           Value: !Sub backend-${ID}
