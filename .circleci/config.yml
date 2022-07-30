@@ -393,6 +393,8 @@ jobs:
             # Fetch and prepare the BACKEND_IP env var
             export API_URL="http://${BACKEND_IP}:3030"
             echo "API_URL is ${API_URL}"
+            echo "Current workflow is ${CIRCLE_WORKFLOW_ID:0:7}"
+
             if curl "${API_URL}/api/status" | grep "ok"
             then
                 return 0
