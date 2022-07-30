@@ -196,7 +196,7 @@ jobs:
             # Your code here
             echo $(aws ec2 describe-instances \
             --query 'Reservations[*].Instances[*].PublicIpAddress' \
-            --filters Name=tag:project,Values=Udapeople \
+            --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
             --output text) >> ~/project/.circleci/ansible/inventory
             cat ~/project/.circleci/ansible/inventory
       - persist_to_workspace:
@@ -300,7 +300,7 @@ jobs:
             # your code here
             export BACKEND_IP=$(aws ec2 describe-instances \
             --query 'Reservations[*].Instances[*].PublicIpAddress' \
-            --filters Name=tag:project,Values=Udapeople \
+            --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
             --output text)
             export API_URL="http://${BACKEND_IP}:3030"
             echo "${API_URL}"
@@ -386,8 +386,8 @@ jobs:
           command: |
             # your code here
             export BACKEND_IP=$(aws ec2 describe-instances \
-            --query 'Reservations[1].Instances[*].PublicIpAddress' \
-            --filters Name=tag:project,Values=Udapeople \
+            --query 'Reservations[*].Instances[*].PublicIpAddress' \
+            --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
             --output text)
 
             # Fetch and prepare the BACKEND_IP env var
@@ -535,4 +535,3 @@ workflows:
           requires: [smoke-test]
       # - cleanup:
       #     requires: [cloudfront-update]
-      
