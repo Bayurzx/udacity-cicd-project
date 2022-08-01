@@ -400,7 +400,7 @@ jobs:
             then
                 return 0
             else
-                echo "1 Something went wrong!!!!!!"
+                return 1
             fi
       - run:
           name: Frontend smoke test.
