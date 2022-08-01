@@ -478,37 +478,38 @@ jobs:
       
       - attach_workspace:
           at: ~/
-      - run:
-          name: Get old stack workflow id
-          command: |
-            # your code here
-            export OldWorkflowID=$(cat ~/OldWorkflowID.txt)
-            echo "${OldWorkflowID}" 
-            echo OldWorkflowID: "${OldWorkflowID}"
-            echo "New WorkflowID is ${CIRCLE_WORKFLOW_ID:0:7}"
 
-            export STACKS=($(aws cloudformation list-stacks --query "StackSummaries[*].StackName" \
-                    --stack-status-filter CREATE_COMPLETE --no-paginate --output text)) 
-            echo Stack names: "${STACKS[@]}"  
+      # - run:
+      #     name: Get old stack workflow id
+      #     command: |
+      #       # your code here
+      #       export OldWorkflowID=$(cat ~/OldWorkflowID.txt)
+      #       echo "${OldWorkflowID}" 
+      #       echo OldWorkflowID: "${OldWorkflowID}"
+      #       echo "New WorkflowID is ${CIRCLE_WORKFLOW_ID:0:7}"
+
+      #       echo Stack names: "${STACKS[@]}"  
 
       - run:
           name: Remove old stacks and files
           command: |
-            echo OldWorkflowID: "$OldWorkflowID"
+            export STACKS=($(aws cloudformation list-stacks --query "StackSummaries[*].StackName" \
+                    --stack-status-filter CREATE_COMPLETE --no-paginate --output text)) 
+
             echo "New WorkflowID is ${CIRCLE_WORKFLOW_ID:0:7}"
             echo Stack names: "${STACKS[@]}"  
 
             for i in "${STACKS[@]}"; do
             echo "On stack: $i"
 
-              if [[ "$i" != "${CIRCLE_WORKFLOW_ID:0:7}" ]]
+              if [[ "$i" != "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" ]]
               then
                 echo "   *********** Old Stack Found   *************    "
-                echo "On stack: $i"
+                echo "On stack with affix: ${i: -7}"
 
-                aws s3 rm "s3://udapeople-${OldWorkflowID}" --recursive
-                aws cloudformation delete-stack --stack-name "udapeople-backend-${OldWorkflowID}"
-                aws cloudformation delete-stack --stack-name "udapeople-frontend-${OldWorkflowID}"
+                aws s3 rm "s3://udapeople-${i: -7}" --recursive
+                aws cloudformation delete-stack --stack-name "udapeople-backend-${i: -7}"
+                aws cloudformation delete-stack --stack-name "udapeople-frontend-${i: -7}"
               else 
                 echo "   ***********  Stack NOT Found   *************    "
               fi
