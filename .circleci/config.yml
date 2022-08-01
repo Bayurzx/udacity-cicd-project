@@ -498,11 +498,13 @@ jobs:
 
             echo "New WorkflowID is ${CIRCLE_WORKFLOW_ID:0:7}"
             echo Stack names: "${STACKS[@]}"  
+            echo "${CIRCLE_WORKFLOW_ID:0:7}"
 
             for i in "${STACKS[@]}"; do
-            echo "On stack: $i"
+            
+              echo "On stack: $i"
 
-              if [[ "$i" != "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" ]]
+              if [[ "$i" != "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" ]] && [[ "$i" != "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" ]]
               then
                 echo "   *********** Old Stack Found   *************    "
                 echo "On stack with affix: ${i: -7}"
@@ -511,7 +513,7 @@ jobs:
                 aws cloudformation delete-stack --stack-name "udapeople-backend-${i: -7}"
                 aws cloudformation delete-stack --stack-name "udapeople-frontend-${i: -7}"
               else 
-                echo "   ***********  Stack NOT Found   *************    "
+                echo "   ***********  Old Stack NOT Found   *************    "
               fi
 
             done
@@ -554,5 +556,5 @@ workflows:
           requires: [deploy-backend, deploy-frontend]
       - cloudfront-update:
           requires: [smoke-test]
-      - cleanup:
-          requires: [cloudfront-update]
+      # - cleanup:
+      #     requires: [cloudfront-update]
