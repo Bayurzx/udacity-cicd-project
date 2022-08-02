@@ -28,7 +28,7 @@
 - name: "enable node_exporter service"
   become: true
   systemd:
-    name: node_exporter
+    name: node-exporter
     state: restarted
     enabled: yes
     daemon_reload: yes
