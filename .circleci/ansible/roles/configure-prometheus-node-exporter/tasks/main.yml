@@ -32,9 +32,3 @@
     state: restarted
     enabled: yes
     daemon_reload: yes
-
-- name: "Do permit traffic in default zone for 'node_exporter' on port 9001/tcp"
-  firewalld:
-    port: 9001/tcp
-    permanent: yes
-    state: enabled
