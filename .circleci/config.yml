@@ -266,8 +266,10 @@ jobs:
           name: Send migration results to kvdb or memstash
           command: |
             # Your code here
+              cat ~/project/backend/migrations_dump.txt
               if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
               then
+                  echo "grepped <it was successful>"
                   # If you are using kvdb.io, generate the bucket ID "P5thQCXKuMdbXnoXdEHU3o" in your local terminal first
                   curl https://kvdb.io/981qXwizoq758yeL6c3Gc4/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
               fi
@@ -493,7 +495,7 @@ jobs:
             
               echo "On stack: $i"
 
-              if [[ "$i" != "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" ]] && [[ "$i" != "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" ]]
+              if [[ "$i" != "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" ]] && [[ "$i" != "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" ]]     #  && [ "$CIRCLE_BRANCH" = "master" ]
               then
                 echo "   *********** Old Stack Found   *************    "
                 echo "On stack with affix: ${i: -7}"
