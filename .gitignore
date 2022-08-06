@@ -8,6 +8,7 @@ log.txt
 *.sublime-workspace
 .vscode/
 npm-debug.log*
+aws_del.txt
 
 .idea/
 .ionic/
