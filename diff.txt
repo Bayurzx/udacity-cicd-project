@@ -1,0 +1,632 @@
+diff --git a/.circleci/ansible/configure-server.yml b/.circleci/ansible/configure-server.yml
+index 8b1ba76..7091245 100644
+--- a/.circleci/ansible/configure-server.yml
++++ b/.circleci/ansible/configure-server.yml
+@@ -28,6 +28,7 @@
+   # Get the environment variables from CircleCI and add to the EC2 instance
+   environment:
+     - TYPEORM_CONNECTION: "{{ lookup('env', 'TYPEORM_CONNECTION')}}"  
++    # Add more env vars here
+     - TYPEORM_ENTITIES: "{{ lookup('env', 'TYPEORM_ENTITIES')}}"
+     - TYPEORM_HOST: "{{ lookup('env', 'TYPEORM_HOST')}}"
+     - TYPEORM_PORT: "{{ lookup('env', 'TYPEORM_PORT')}}"
+@@ -36,10 +37,7 @@
+     - TYPEORM_DATABASE: "{{ lookup('env', 'TYPEORM_DATABASE')}}"
+     - TYPEORM_MIGRATIONS: "{{ lookup('env', 'TYPEORM_MIGRATIONS')}}"
+     - TYPEORM_MIGRATIONS_DIR: "{{ lookup('env', 'TYPEORM_MIGRATIONS_DIR')}}"
+-    - NODE_ENV: production
+-    - ENVIRONMENT: production
+ 
+   roles:
+     # Your code here
+     - configure-server
+-    - configure-prometheus-node-exporter
+diff --git a/.circleci/ansible/deploy-backend.yml b/.circleci/ansible/deploy-backend.yml
+index f8b6257..5fa24b2 100644
+--- a/.circleci/ansible/deploy-backend.yml
++++ b/.circleci/ansible/deploy-backend.yml
+@@ -12,7 +12,6 @@
+     - ansible_host_key_checking: false
+     - ansible_stdout_callback: yaml
+   environment:
+-    - NODE_ENV: production
+     - ENVIRONMENT: production
+     - TYPEORM_CONNECTION: "{{ lookup('env', 'TYPEORM_CONNECTION')}}"
+     - TYPEORM_ENTITIES: "{{ lookup('env', 'TYPEORM_ENTITIES')}}"
+diff --git a/.circleci/ansible/roles/configure-prometheus-node-exporter/files/alertmanager.service b/.circleci/ansible/roles/configure-prometheus-node-exporter/files/alertmanager.service
+deleted file mode 100644
+index 00c66a1..0000000
+--- a/.circleci/ansible/roles/configure-prometheus-node-exporter/files/alertmanager.service
++++ /dev/null
+@@ -1,17 +0,0 @@
+-[Unit]
+-Description=Alert Manager
+-Wants=network-online.target
+-After=network-online.target
+-
+-[Service]
+-Type=simple
+-User=prometheus
+-Group=prometheus
+-ExecStart=/usr/local/bin/alertmanager \
+-  --config.file=/etc/prometheus/alertmanager.yml \
+-  --storage.path=/var/lib/alertmanager
+-
+-Restart=always
+-
+-[Install]
+-WantedBy=multi-user.target
+diff --git a/.circleci/ansible/roles/configure-prometheus-node-exporter/files/alertmanager.yml b/.circleci/ansible/roles/configure-prometheus-node-exporter/files/alertmanager.yml
+deleted file mode 100644
+index 0bcc9c6..0000000
+--- a/.circleci/ansible/roles/configure-prometheus-node-exporter/files/alertmanager.yml
++++ /dev/null
+@@ -1,12 +0,0 @@
+-global:
+-  resolve_timeout: 1m
+-  slack_api_url: 'https://hooks.slack.com/services/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'
+-
+-route:
+-  receiver: 'slack-notifications'
+-
+-receivers:
+-- name: 'slack-notifications'
+-  slack_configs:
+-  - channel: '#general'
+-    send_resolved: true
+diff --git a/.circleci/ansible/roles/configure-prometheus-node-exporter/files/node-exporter.service b/.circleci/ansible/roles/configure-prometheus-node-exporter/files/node-exporter.service
+deleted file mode 100644
+index 7cf401b..0000000
+--- a/.circleci/ansible/roles/configure-prometheus-node-exporter/files/node-exporter.service
++++ /dev/null
+@@ -1,12 +0,0 @@
+-[Unit]
+-Description=Prometheus Node Exporter Service
+-After=network.target
+-
+-[Service]
+-User=node_exporter
+-Group=node_exporter
+-Type=simple
+-ExecStart=/usr/local/bin/node_exporter
+-
+-[Install]
+-WantedBy=multi-user.target
+diff --git a/.circleci/ansible/roles/configure-prometheus-node-exporter/files/rules.yml b/.circleci/ansible/roles/configure-prometheus-node-exporter/files/rules.yml
+deleted file mode 100644
+index ec38198..0000000
+--- a/.circleci/ansible/roles/configure-prometheus-node-exporter/files/rules.yml
++++ /dev/null
+@@ -1,11 +0,0 @@
+-groups:
+-- name: Down
+-  rules:
+-  - alert: InstanceDown
+-    expr: up == 0
+-    for: 3m
+-    labels:
+-      severity: 'critical'
+-    annotations:
+-      summary: "Instance  is down"
+-      description: " of job  has been down for more than 3 minutes."
+diff --git a/.circleci/ansible/roles/configure-prometheus-node-exporter/tasks/main.yml b/.circleci/ansible/roles/configure-prometheus-node-exporter/tasks/main.yml
+index 4e8f3ec..ec8ab2e 100644
+--- a/.circleci/ansible/roles/configure-prometheus-node-exporter/tasks/main.yml
++++ b/.circleci/ansible/roles/configure-prometheus-node-exporter/tasks/main.yml
+@@ -1,63 +1,27 @@
+-- name: "create a user for Prometheus Node Exporter"
+-  become: true
+-
+-  shell: |
+-    sudo useradd --no-create-home node_exporter
+-
+-- name: "install Node Exporter binaries."
+-  shell: |
+-    wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+-    tar xzf node_exporter-1.0.1.linux-amd64.tar.gz
+-    sudo cp node_exporter-1.0.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+-    rm -rf node_exporter-1.0.1.linux-amd64.tar.gz node_exporter-1.0.1.linux-amd64
++- name: "install node exporter."
++  unarchive:
++    src: https://github.com/prometheus/node_exporter/releases/download/v0.17.0/node_exporter-0.17.0.linux-amd64.tar.gz
++    dest: /tmp
++    remote_src: yes
+ 
++- name: "move binary to /usr/local/bin."
++  become: true
++  copy:
++    src: /tmp/node_exporter-0.17.0.linux-amd64/node_exporter
++    dest: /usr/local/bin/node_exporter
++    remote_src: yes
++    mode: '0777'
+     
+-- name: "add node-exporter service configuration."
++- name: "add node exporter configuration."
+   become: true
+   copy:
+-    src: node-exporter.service
++    src: node_exporter.service
+     dest: /etc/systemd/system/
+ 
+ - name: "enable node_exporter service"
+   become: true
+   systemd:
+-    name: node-exporter
+     state: restarted
+-    enabled: yes
+     daemon_reload: yes
+-
+-# i Ran this code manually. As per given instruction
+-# - name: "Install Alertmanager"
+-#   shell: |
+-#     wget https://github.com/prometheus/alertmanager/releases/download/v0.21.0/alertmanager-0.21.0.linux-amd64.tar.gz
+-#     tar xvfz alertmanager-0.21.0.linux-amd64.tar.gz
+-
+-#     sudo cp alertmanager-0.21.0.linux-amd64/alertmanager /usr/local/bin
+-#     sudo cp alertmanager-0.21.0.linux-amd64/amtool /usr/local/bin/
+-#     sudo mkdir /var/lib/alertmanager
+-
+-#     rm -rf alertmanager*
+-
+-# - name: "Add Alertmanagers configuration."
+-#   become: true
+-#   copy:
+-#     src: alertmanager.yml
+-#     dest: /etc/prometheus/
+-
+-# - name: "Add Alertmanagers service."
+-#   become: true
+-#   copy:
+-#     src: alertmanager.service
+-#     dest: /etc/systemd/system/
+-
+-# - name: "Configure Systemd for alertmanager"
+-#   shell: |
+-#     sudo systemctl daemon-reload
+-#     sudo systemctl enable alertmanager
+-#     sudo systemctl start alertmanager
+-
+-# - name: "Create a Alert Rule."
+-#   become: true
+-#   copy:
+-#     src: rules.yml
+-#     dest: /etc/prometheus/
++    name: node_exporter
++    enabled: yes
+\ No newline at end of file
+diff --git a/.circleci/config.yml b/.circleci/config.yml
+index b5fc2a5..eaba47e 100644
+--- a/.circleci/config.yml
++++ b/.circleci/config.yml
+@@ -37,6 +37,7 @@ commands:
+           command: |
+             cd ~/project/backend
+             npm install
++            npm run build
+             npm run migrations:revert
+ 
+ jobs:
+@@ -267,7 +268,6 @@ jobs:
+             # Your code here
+               if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
+               then
+-                  echo "grepped <it was successful>"
+                   # If you are using kvdb.io, generate the bucket ID "P5thQCXKuMdbXnoXdEHU3o" in your local terminal first
+                   curl https://kvdb.io/981qXwizoq758yeL6c3Gc4/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
+               fi
+@@ -396,7 +396,7 @@ jobs:
+             echo "Current workflow is ${CIRCLE_WORKFLOW_ID:0:7}"
+ 
+             # if curl "${API_URL}" | grep "ok"
+-            if curl -s -v --connect-timeout 30 --retry-connrefused 10 "${API_URL}" | grep "ok"
++            if curl -s -v --connect-timeout 30 --retry-connrefused 5 "${API_URL}" | grep "ok"
+             then
+                 return 0
+             else
+@@ -470,44 +470,36 @@ jobs:
+     steps:
+       # Checkout code from git
+       - checkout
+-      - run:
+-          name: Install dependencies
+-          command: |
+-            # your code here
+-            yum -y install tar gzip
+       
+       - attach_workspace:
+           at: ~/
+-
+       - run:
+-          name: Remove old stacks and files
++          name: Get old stack workflow id
+           command: |
++            # your code here
++            export OldWorkflowID=$(cat ~/OldWorkflowID.txt)
++            echo "${OldWorkflowID}" 
++            echo OldWorkflowID: "${OldWorkflowID}"
++            echo "New WorkflowID is ${CIRCLE_WORKFLOW_ID:0:7}"
++
+             export STACKS=($(aws cloudformation list-stacks --query "StackSummaries[*].StackName" \
+                     --stack-status-filter CREATE_COMPLETE --no-paginate --output text)) 
+-
+-            echo "New WorkflowID is ${CIRCLE_WORKFLOW_ID:0:7}"
+             echo Stack names: "${STACKS[@]}"  
+-            echo "${CIRCLE_WORKFLOW_ID:0:7}"
+-
+-            for i in "${STACKS[@]}"; do
+-            
+-              echo "On stack: $i"
+-
+-              if [[ "$i" != "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" ]] && [[ "$i" != "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" ]]
+-              then
+-                echo "   *********** Old Stack Found   *************    "
+-                echo "On stack with affix: ${i: -7}"
+-
+-                aws s3 rm "s3://udapeople-${i: -7}" --recursive
+-                aws cloudformation delete-stack --stack-name "udapeople-backend-${i: -7}"
+-                aws cloudformation delete-stack --stack-name "udapeople-frontend-${i: -7}"
+-              else 
+-                echo "   ***********  Old Stack NOT Found   *************    "
+-              fi
+-
+-            done
+ 
++      - run:
++          name: Remove old stacks and files
++          command: |
++            echo OldWorkflowID: "$OldWorkflowID"
+ 
++            if [[ "${STACKS[@]}" =~ "${OldWorkflowID}" ]]
++            then
++              echo "   ***********  Stack Found   *************    "
++              aws s3 rm "s3://udapeople-${OldWorkflowID}" --recursive
++              aws cloudformation delete-stack --stack-name "udapeople-backend-${OldWorkflowID}"
++              aws cloudformation delete-stack --stack-name "udapeople-frontend-${OldWorkflowID}"
++            else 
++              echo "   ***********  Stack NOT Found   *************    "
++            fi
+           
+       - destroy-environment:
+           destroy_workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
+@@ -541,9 +533,9 @@ workflows:
+           requires: [run-migrations]
+       - deploy-backend:
+           requires: [run-migrations]
+-      # - smoke-test:
+-      #     requires: [deploy-backend, deploy-frontend]
+-      # - cloudfront-update:
+-      #     requires: [smoke-test]
++      - smoke-test:
++          requires: [deploy-backend, deploy-frontend]
++      - cloudfront-update:
++          requires: [smoke-test]
+       # - cleanup:
+       #     requires: [cloudfront-update]
+diff --git a/CICD Presentation_new.pdf b/CICD Presentation.pdf
+similarity index 86%
+rename from CICD Presentation_new.pdf
+rename to CICD Presentation.pdf
+index 9d2d443..e5456e9 100644
+diff --git a/CICD Presentation.pptx b/CICD Presentation.pptx
+index ef678cb..0bb811c 100644
+Binary files a/CICD Presentation.pptx and b/CICD Presentation.pptx differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT01.jpg b/SCREENSHOTS (mine)/SCREENSHOT01.jpg
+deleted file mode 100644
+index 9a25c45..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT01.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT02.jpg b/SCREENSHOTS (mine)/SCREENSHOT02.jpg
+deleted file mode 100644
+index 1e80e6d..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT02.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT03_1.jpg b/SCREENSHOTS (mine)/SCREENSHOT03_1.jpg
+deleted file mode 100644
+index b8e6dc5..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT03_1.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT03_2.jpg b/SCREENSHOTS (mine)/SCREENSHOT03_2.jpg
+deleted file mode 100644
+index c368ef7..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT03_2.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT04_1.jpg b/SCREENSHOTS (mine)/SCREENSHOT04_1.jpg
+deleted file mode 100644
+index 4123bc7..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT04_1.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT04_2.jpg b/SCREENSHOTS (mine)/SCREENSHOT04_2.jpg
+deleted file mode 100644
+index 448d22e..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT04_2.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT05.jpg b/SCREENSHOTS (mine)/SCREENSHOT05.jpg
+deleted file mode 100644
+index e123988..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT05.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT06.jpg b/SCREENSHOTS (mine)/SCREENSHOT06.jpg
+deleted file mode 100644
+index e649e0a..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT06.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT07.jpg b/SCREENSHOTS (mine)/SCREENSHOT07.jpg
+deleted file mode 100644
+index 32573a2..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT07.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT08.jpg b/SCREENSHOTS (mine)/SCREENSHOT08.jpg
+deleted file mode 100644
+index 138421c..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT08.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT09.jpg b/SCREENSHOTS (mine)/SCREENSHOT09.jpg
+deleted file mode 100644
+index 138421c..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT09.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT10.jpg b/SCREENSHOTS (mine)/SCREENSHOT10.jpg
+deleted file mode 100644
+index 0a6813e..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT10.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT11_1.jpg b/SCREENSHOTS (mine)/SCREENSHOT11_1.jpg
+deleted file mode 100644
+index 12c4132..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT11_1.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT11_2.jpg b/SCREENSHOTS (mine)/SCREENSHOT11_2.jpg
+deleted file mode 100644
+index 432acc3..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT11_2.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT11_3_new.jpg b/SCREENSHOTS (mine)/SCREENSHOT11_3_new.jpg
+deleted file mode 100644
+index f8cf754..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT11_3_new.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT12.jpg b/SCREENSHOTS (mine)/SCREENSHOT12.jpg
+deleted file mode 100644
+index d7344ae..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT12.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/SCREENSHOT12_new.jpg b/SCREENSHOTS (mine)/SCREENSHOT12_new.jpg
+deleted file mode 100644
+index 70434eb..0000000
+Binary files a/SCREENSHOTS (mine)/SCREENSHOT12_new.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/URL01.txt b/SCREENSHOTS (mine)/URL01.txt
+deleted file mode 100644
+index 7f54f0a..0000000
+--- a/SCREENSHOTS (mine)/URL01.txt	
++++ /dev/null
+@@ -1 +0,0 @@
+-https://github.com/Bayurzx/udacity-cicd-project
+\ No newline at end of file
+diff --git a/SCREENSHOTS (mine)/URL02.txt b/SCREENSHOTS (mine)/URL02.txt
+deleted file mode 100644
+index ff64178..0000000
+--- a/SCREENSHOTS (mine)/URL02.txt	
++++ /dev/null
+@@ -1 +0,0 @@
+-http://udapeople-129b994.s3-website-us-east-1.amazonaws.com/
+\ No newline at end of file
+diff --git a/SCREENSHOTS (mine)/URL02_SCREENSHOT_new.jpg b/SCREENSHOTS (mine)/URL02_SCREENSHOT_new.jpg
+deleted file mode 100644
+index eaa02c7..0000000
+Binary files a/SCREENSHOTS (mine)/URL02_SCREENSHOT_new.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/URL03_cloudfront.jpg b/SCREENSHOTS (mine)/URL03_cloudfront.jpg
+deleted file mode 100644
+index 1dcf7a1..0000000
+Binary files a/SCREENSHOTS (mine)/URL03_cloudfront.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/URL03_cloudfront_new.jpg b/SCREENSHOTS (mine)/URL03_cloudfront_new.jpg
+deleted file mode 100644
+index 07965aa..0000000
+Binary files a/SCREENSHOTS (mine)/URL03_cloudfront_new.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/URL04_api_status.jpg b/SCREENSHOTS (mine)/URL04_api_status.jpg
+deleted file mode 100644
+index ddb2a84..0000000
+Binary files a/SCREENSHOTS (mine)/URL04_api_status.jpg and /dev/null differ
+diff --git a/SCREENSHOTS (mine)/URL05_targets.jpg b/SCREENSHOTS (mine)/URL05_targets.jpg
+deleted file mode 100644
+index d4e6044..0000000
+Binary files a/SCREENSHOTS (mine)/URL05_targets.jpg and /dev/null differ
+diff --git a/Screenshots/0-selling-cicd.md b/instructions/0-selling-cicd.md
+similarity index 100%
+rename from Screenshots/0-selling-cicd.md
+rename to instructions/0-selling-cicd.md
+diff --git a/Screenshots/1-getting-started.md b/instructions/1-getting-started.md
+similarity index 100%
+rename from Screenshots/1-getting-started.md
+rename to instructions/1-getting-started.md
+diff --git a/Screenshots/2-deploying-trustworthy-code.md b/instructions/2-deploying-trustworthy-code.md
+similarity index 100%
+rename from Screenshots/2-deploying-trustworthy-code.md
+rename to instructions/2-deploying-trustworthy-code.md
+diff --git a/Screenshots/3-configuration-management.md b/instructions/3-configuration-management.md
+similarity index 100%
+rename from Screenshots/3-configuration-management.md
+rename to instructions/3-configuration-management.md
+diff --git a/Screenshots/4-turn-errors-into-sirens.md b/instructions/4-turn-errors-into-sirens.md
+similarity index 100%
+rename from Screenshots/4-turn-errors-into-sirens.md
+rename to instructions/4-turn-errors-into-sirens.md
+diff --git a/Screenshots/screenshots/SCREENSHOT01.png b/instructions/screenshots/SCREENSHOT01.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT01.png
+rename to instructions/screenshots/SCREENSHOT01.png
+diff --git a/Screenshots/screenshots/SCREENSHOT02.png b/instructions/screenshots/SCREENSHOT02.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT02.png
+rename to instructions/screenshots/SCREENSHOT02.png
+diff --git a/Screenshots/screenshots/SCREENSHOT03.png b/instructions/screenshots/SCREENSHOT03.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT03.png
+rename to instructions/screenshots/SCREENSHOT03.png
+diff --git a/Screenshots/screenshots/SCREENSHOT04.png b/instructions/screenshots/SCREENSHOT04.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT04.png
+rename to instructions/screenshots/SCREENSHOT04.png
+diff --git a/Screenshots/screenshots/SCREENSHOT05.png b/instructions/screenshots/SCREENSHOT05.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT05.png
+rename to instructions/screenshots/SCREENSHOT05.png
+diff --git a/Screenshots/screenshots/SCREENSHOT06.png b/instructions/screenshots/SCREENSHOT06.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT06.png
+rename to instructions/screenshots/SCREENSHOT06.png
+diff --git a/Screenshots/screenshots/SCREENSHOT07.png b/instructions/screenshots/SCREENSHOT07.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT07.png
+rename to instructions/screenshots/SCREENSHOT07.png
+diff --git a/Screenshots/screenshots/SCREENSHOT08.png b/instructions/screenshots/SCREENSHOT08.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT08.png
+rename to instructions/screenshots/SCREENSHOT08.png
+diff --git a/Screenshots/screenshots/SCREENSHOT09.png b/instructions/screenshots/SCREENSHOT09.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT09.png
+rename to instructions/screenshots/SCREENSHOT09.png
+diff --git a/Screenshots/screenshots/SCREENSHOT10.png b/instructions/screenshots/SCREENSHOT10.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT10.png
+rename to instructions/screenshots/SCREENSHOT10.png
+diff --git a/Screenshots/screenshots/SCREENSHOT11.png b/instructions/screenshots/SCREENSHOT11.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT11.png
+rename to instructions/screenshots/SCREENSHOT11.png
+diff --git a/Screenshots/screenshots/SCREENSHOT12.png b/instructions/screenshots/SCREENSHOT12.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT12.png
+rename to instructions/screenshots/SCREENSHOT12.png
+diff --git a/Screenshots/screenshots/SCREENSHOT__service-discovery.png b/instructions/screenshots/SCREENSHOT__service-discovery.png
+similarity index 100%
+rename from Screenshots/screenshots/SCREENSHOT__service-discovery.png
+rename to instructions/screenshots/SCREENSHOT__service-discovery.png
+diff --git a/Screenshots/screenshots/readme.md b/instructions/screenshots/readme.md
+similarity index 100%
+rename from Screenshots/screenshots/readme.md
+rename to instructions/screenshots/readme.md
+diff --git a/my pics/2_11_cloud_update_pass2.jpg b/my pics/2_11_cloud_update_pass2.jpg
+deleted file mode 100644
+index 4ed21f1..0000000
+Binary files a/my pics/2_11_cloud_update_pass2.jpg and /dev/null differ
+diff --git a/my pics/2_11_not_master_branch.jpg b/my pics/2_11_not_master_branch.jpg
+deleted file mode 100644
+index 0a6813e..0000000
+Binary files a/my pics/2_11_not_master_branch.jpg and /dev/null differ
+diff --git a/my pics/2_12_cloudfront.jpg b/my pics/2_12_cloudfront.jpg
+deleted file mode 100644
+index 1dcf7a1..0000000
+Binary files a/my pics/2_12_cloudfront.jpg and /dev/null differ
+diff --git a/my pics/2_4_Alert2.jpg b/my pics/2_4_Alert2.jpg
+deleted file mode 100644
+index 448d22e..0000000
+Binary files a/my pics/2_4_Alert2.jpg and /dev/null differ
+diff --git a/my pics/3_1_graph.jpg b/my pics/3_1_graph.jpg
+deleted file mode 100644
+index 12c4132..0000000
+Binary files a/my pics/3_1_graph.jpg and /dev/null differ
+diff --git a/my pics/3_1_graph2.jpg b/my pics/3_1_graph2.jpg
+deleted file mode 100644
+index 432acc3..0000000
+Binary files a/my pics/3_1_graph2.jpg and /dev/null differ
+diff --git a/my pics/3_2_Targets.jpg b/my pics/3_2_Targets.jpg
+deleted file mode 100644
+index d4e6044..0000000
+Binary files a/my pics/3_2_Targets.jpg and /dev/null differ
+diff --git a/my pics/3_3_alert_slack.jpg b/my pics/3_3_alert_slack.jpg
+deleted file mode 100644
+index d7344ae..0000000
+Binary files a/my pics/3_3_alert_slack.jpg and /dev/null differ
+diff --git a/my pics/failed_email_build.jpg b/my pics/failed_email_build.jpg
+deleted file mode 100644
+index 3720f97..0000000
+Binary files a/my pics/failed_email_build.jpg and /dev/null differ
+diff --git a/my pics/2_10_rollback_pass.jpg b/screenshots/2_10_rollback_pass.jpg
+similarity index 100%
+rename from my pics/2_10_rollback_pass.jpg
+rename to screenshots/2_10_rollback_pass.jpg
+diff --git a/my pics/2_10_smoke_test_pass.jpg b/screenshots/2_10_smoke_test_pass.jpg
+similarity index 100%
+rename from my pics/2_10_smoke_test_pass.jpg
+rename to screenshots/2_10_smoke_test_pass.jpg
+diff --git a/my pics/2_10_smoke_test_pass2.jpg b/screenshots/2_10_smoke_test_pass2.jpg
+similarity index 100%
+rename from my pics/2_10_smoke_test_pass2.jpg
+rename to screenshots/2_10_smoke_test_pass2.jpg
+diff --git a/my pics/2_10_smoke_test_url_pass.jpg b/screenshots/2_10_smoke_test_url_pass.jpg
+similarity index 100%
+rename from my pics/2_10_smoke_test_url_pass.jpg
+rename to screenshots/2_10_smoke_test_url_pass.jpg
+diff --git a/my pics/2_11_cloud_update_pass.jpg b/screenshots/2_11_cloud_update_pass.jpg
+similarity index 100%
+rename from my pics/2_11_cloud_update_pass.jpg
+rename to screenshots/2_11_cloud_update_pass.jpg
+diff --git a/my pics/2_1_backend_build_err.jpg b/screenshots/2_1_backend_build_err.jpg
+similarity index 100%
+rename from my pics/2_1_backend_build_err.jpg
+rename to screenshots/2_1_backend_build_err.jpg
+diff --git a/my pics/2_1_backend_build_error.jpg b/screenshots/2_1_backend_build_error.jpg
+similarity index 100%
+rename from my pics/2_1_backend_build_error.jpg
+rename to screenshots/2_1_backend_build_error.jpg
+diff --git a/my pics/2_1_backend_build_error_fixed.jpg b/screenshots/2_1_backend_build_error_fixed.jpg
+similarity index 100%
+rename from my pics/2_1_backend_build_error_fixed.jpg
+rename to screenshots/2_1_backend_build_error_fixed.jpg
+diff --git a/my pics/2_2_test_back_end_fail.jpg b/screenshots/2_2_test_back_end_fail.jpg
+similarity index 100%
+rename from my pics/2_2_test_back_end_fail.jpg
+rename to screenshots/2_2_test_back_end_fail.jpg
+diff --git a/my pics/2_2_test_back_end_pass.jpg b/screenshots/2_2_test_back_end_pass.jpg
+similarity index 100%
+rename from my pics/2_2_test_back_end_pass.jpg
+rename to screenshots/2_2_test_back_end_pass.jpg
+diff --git a/my pics/2_2_test_front_end_fail.jpg b/screenshots/2_2_test_front_end_fail.jpg
+similarity index 100%
+rename from my pics/2_2_test_front_end_fail.jpg
+rename to screenshots/2_2_test_front_end_fail.jpg
+diff --git a/my pics/2_2_test_front_end_fail2.jpg b/screenshots/2_2_test_front_end_fail2.jpg
+similarity index 100%
+rename from my pics/2_2_test_front_end_fail2.jpg
+rename to screenshots/2_2_test_front_end_fail2.jpg
+diff --git a/my pics/2_2_test_front_end_pass.jpg b/screenshots/2_2_test_front_end_pass.jpg
+similarity index 100%
+rename from my pics/2_2_test_front_end_pass.jpg
+rename to screenshots/2_2_test_front_end_pass.jpg
+diff --git a/my pics/2_3_scan_back_end_fail.jpg b/screenshots/2_3_scan_back_end_fail.jpg
+similarity index 100%
+rename from my pics/2_3_scan_back_end_fail.jpg
+rename to screenshots/2_3_scan_back_end_fail.jpg
+diff --git a/my pics/2_3_scan_back_end_fail2.jpg b/screenshots/2_3_scan_back_end_fail2.jpg
+similarity index 100%
+rename from my pics/2_3_scan_back_end_fail2.jpg
+rename to screenshots/2_3_scan_back_end_fail2.jpg
+diff --git a/my pics/2_3_scan_back_end_pass.jpg b/screenshots/2_3_scan_back_end_pass.jpg
+similarity index 100%
+rename from my pics/2_3_scan_back_end_pass.jpg
+rename to screenshots/2_3_scan_back_end_pass.jpg
+diff --git a/my pics/2_3_scan_front_end_fail.jpg b/screenshots/2_3_scan_front_end_fail.jpg
+similarity index 100%
+rename from my pics/2_3_scan_front_end_fail.jpg
+rename to screenshots/2_3_scan_front_end_fail.jpg
+diff --git a/my pics/2_3_scan_front_end_fail2.jpg b/screenshots/2_3_scan_front_end_fail2.jpg
+similarity index 100%
+rename from my pics/2_3_scan_front_end_fail2.jpg
+rename to screenshots/2_3_scan_front_end_fail2.jpg
+diff --git a/my pics/2_3_scan_front_end_pass.jpg b/screenshots/2_3_scan_front_end_pass.jpg
+similarity index 100%
+rename from my pics/2_3_scan_front_end_pass.jpg
+rename to screenshots/2_3_scan_front_end_pass.jpg
+diff --git a/my pics/2_4_Alert.jpg b/screenshots/2_4_Alert.jpg
+similarity index 100%
+rename from my pics/2_4_Alert.jpg
+rename to screenshots/2_4_Alert.jpg
+diff --git a/my pics/2_5_cloudFormation_manual_intialStack.jpg b/screenshots/2_5_cloudFormation_manual_intialStack.jpg
+similarity index 100%
+rename from my pics/2_5_cloudFormation_manual_intialStack.jpg
+rename to screenshots/2_5_cloudFormation_manual_intialStack.jpg
+diff --git a/my pics/2_6_deploy_infra_fail.jpg b/screenshots/2_6_deploy_infra_fail.jpg
+similarity index 100%
+rename from my pics/2_6_deploy_infra_fail.jpg
+rename to screenshots/2_6_deploy_infra_fail.jpg
+diff --git a/my pics/2_6_deploy_infra_pass.jpg b/screenshots/2_6_deploy_infra_pass.jpg
+similarity index 100%
+rename from my pics/2_6_deploy_infra_pass.jpg
+rename to screenshots/2_6_deploy_infra_pass.jpg
+diff --git a/my pics/2_7_get_backend_url.jpg b/screenshots/2_7_get_backend_url.jpg
+similarity index 100%
+rename from my pics/2_7_get_backend_url.jpg
+rename to screenshots/2_7_get_backend_url.jpg
+diff --git a/my pics/2_8_smoke_test_fail.jpg b/screenshots/2_8_smoke_test_fail.jpg
+similarity index 100%
+rename from my pics/2_8_smoke_test_fail.jpg
+rename to screenshots/2_8_smoke_test_fail.jpg
+diff --git a/my pics/2_9_smoke_test_fail.jpg b/screenshots/2_9_smoke_test_fail.jpg
+similarity index 100%
+rename from my pics/2_9_smoke_test_fail.jpg
+rename to screenshots/2_9_smoke_test_fail.jpg

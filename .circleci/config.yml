@@ -37,6 +37,7 @@ commands:
           command: |
             cd ~/project/backend
             npm install
+            npm run build
             npm run migrations:revert
 
 jobs:
@@ -267,7 +268,6 @@ jobs:
             # Your code here
               if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
               then
-                  echo "grepped <it was successful>"
                   # If you are using kvdb.io, generate the bucket ID "P5thQCXKuMdbXnoXdEHU3o" in your local terminal first
                   curl https://kvdb.io/981qXwizoq758yeL6c3Gc4/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
               fi
@@ -532,7 +532,7 @@ workflows:
           requires: [test-frontend, test-backend, scan-frontend, scan-backend]
           filters:
             branches:
-              only: [master]
+              only: [master, my-feature-branch]
       - configure-infrastructure:
           requires: [deploy-infrastructure]
       - run-migrations:
