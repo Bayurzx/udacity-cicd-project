@@ -1,0 +1,3 @@
+aws s3 rm "s3://udapeople-2b847fa" --recursive
+aws cloudformation delete-stack --stack-name "udapeople-backend-2b847fa"
+aws cloudformation delete-stack --stack-name "udapeople-frontend-2b847fa"
