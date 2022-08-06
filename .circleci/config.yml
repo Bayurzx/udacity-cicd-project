@@ -396,7 +396,7 @@ jobs:
             echo "Current workflow is ${CIRCLE_WORKFLOW_ID:0:7}"
 
             # if curl "${API_URL}" | grep "ok"
-            if curl -s -v --connect-timeout 30 --retry-connrefused 5 "${API_URL}" | grep "ok"
+            if curl -s -v --connect-timeout 30 --retry-connrefused 10 "${API_URL}" | grep "ok"
             then
                 return 0
             else
