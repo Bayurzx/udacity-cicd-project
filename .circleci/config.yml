@@ -493,7 +493,7 @@ jobs:
             
               echo "On stack: $i"
 
-              if [[ "$i" != "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" ]] && [[ "$i" != "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" ]]
+              if [[ "$i" != "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" ]] && [[ "$i" != "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" ]] && [[ "$i" =~ "udapeople" ]]
               then
                 echo "   *********** Old Stack Found   *************    "
                 echo "On stack with affix: ${i: -7}"
